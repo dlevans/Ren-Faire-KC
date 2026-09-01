@@ -197,7 +197,7 @@ export default function RenFaireMap() {
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution='&copy; OpenStreetMap contributors'
           maxZoom={19}
         />
         <MapBounds bounds={bounds} />
