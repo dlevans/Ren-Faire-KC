@@ -3,9 +3,28 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
+interface Location {
+  id: string
+  name: string
+  type: string
+  vendortype: string
+  latitude: number
+  longitude: number
+  description: string
+  links: string[]
+  schedule: string[]
+}
+
+interface Bounds {
+  north: number
+  south: number
+  east: number
+  west: number
+}
+
 // Custom icon colors by type
-const getMarkerColor = (type) => {
-  const colors = {
+const getMarkerColor = (type: string): string => {
+  const colors: Record<string, string> = {
     FOOD: '#ff6b6b',
     VENDOR: '#4ecdc4',
     ACTIVITY: '#45b7d1',
@@ -20,7 +39,7 @@ const getMarkerColor = (type) => {
   return colors[type] || '#95a5a6'
 }
 
-const createCustomIcon = (color) => {
+const createCustomIcon = (color: string) => {
   return L.divIcon({
     html: `<div style="
       background-color: ${color};
@@ -38,7 +57,7 @@ const createCustomIcon = (color) => {
   })
 }
 
-const MapBounds = ({ bounds }) => {
+const MapBounds: React.FC<{ bounds: Bounds }> = ({ bounds }) => {
   const map = useMap()
   useEffect(() => {
     if (bounds) {
@@ -52,9 +71,9 @@ const MapBounds = ({ bounds }) => {
 }
 
 export default function RenFaireMap() {
-  const [selectedType, setSelectedType] = useState(null)
+  const [selectedType, setSelectedType] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [locationsData, setLocationsData] = useState([])
+  const [locationsData, setLocationsData] = useState<Location[]>([])
   const [loading, setLoading] = useState(true)
 
   // Load locations from public folder
@@ -71,7 +90,7 @@ export default function RenFaireMap() {
       })
   }, [])
 
-  const bounds = {
+  const bounds: Bounds = {
     north: 39.115053,
     south: 39.108306,
     east: -94.870419,
@@ -100,7 +119,7 @@ export default function RenFaireMap() {
     ...new Set(locationsData.map((loc) => loc.type)),
   ].sort()
 
-  const center = [
+  const center: [number, number] = [
     (bounds.north + bounds.south) / 2,
     (bounds.east + bounds.west) / 2,
   ]
@@ -235,16 +254,16 @@ export default function RenFaireMap() {
 
 const styles = {
   loading: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
+    display: 'flex' as const,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     height: '100vh',
     fontSize: '18px',
     color: '#666',
   },
   container: {
-    display: 'flex',
-    flexDirection: 'column',
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
     height: '100vh',
     fontFamily: 'system-ui, -apple-system, sans-serif',
     backgroundColor: '#f5f5f5',
@@ -253,20 +272,20 @@ const styles = {
     padding: '16px',
     backgroundColor: '#2c3e50',
     color: 'white',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
   },
   controls: {
     padding: '12px',
     backgroundColor: 'white',
     borderBottom: '1px solid #ddd',
-    overflowY: 'auto',
+    overflowY: 'auto' as const,
     maxHeight: '180px',
   },
   searchBox: {
     marginBottom: '12px',
-    position: 'relative',
-    display: 'flex',
+    position: 'relative' as const,
+    display: 'flex' as const,
   },
   searchInput: {
     flex: 1,
@@ -277,20 +296,20 @@ const styles = {
     fontFamily: 'inherit',
   },
   clearButton: {
-    position: 'absolute',
+    position: 'absolute' as const,
     right: '8px',
     top: '50%',
     transform: 'translateY(-50%)',
     background: 'none',
     border: 'none',
-    cursor: 'pointer',
+    cursor: 'pointer' as const,
     fontSize: '18px',
     color: '#999',
     padding: '0 8px',
   },
   filterContainer: {
-    display: 'flex',
-    flexWrap: 'wrap',
+    display: 'flex' as const,
+    flexWrap: 'wrap' as const,
     gap: '6px',
     marginBottom: '8px',
   },
@@ -299,12 +318,12 @@ const styles = {
     borderRadius: '4px',
     border: '1px solid #ccc',
     backgroundColor: '#f0f0f0',
-    cursor: 'pointer',
+    cursor: 'pointer' as const,
     fontSize: '12px',
-    fontWeight: 500,
+    fontWeight: 500 as const,
     color: '#333',
     transition: 'all 0.2s',
-    whiteSpace: 'nowrap',
+    whiteSpace: 'nowrap' as const,
   },
   filterButtonActive: {
     border: '2px solid #333',
@@ -326,7 +345,7 @@ const styles = {
     fontSize: '12px',
     color: '#666',
     backgroundColor: '#fafafa',
-    textAlign: 'center',
+    textAlign: 'center' as const,
     borderTop: '1px solid #ddd',
   },
   popupContent: {
@@ -336,7 +355,7 @@ const styles = {
   popupTitle: {
     margin: '0 0 8px 0',
     fontSize: '15px',
-    fontWeight: 600,
+    fontWeight: 600 as const,
     color: '#2c3e50',
   },
   popupDetail: {
@@ -346,6 +365,6 @@ const styles = {
   link: {
     color: '#0066cc',
     textDecoration: 'none',
-    fontWeight: 500,
+    fontWeight: 500 as const,
   },
 }
