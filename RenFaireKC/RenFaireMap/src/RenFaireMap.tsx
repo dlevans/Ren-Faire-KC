@@ -188,7 +188,7 @@ export default function RenFaireMap() {
   const [gpsEnabled, setGpsEnabled] = useState(false)
   const [hideMarkers, setHideMarkers] = useState(false)
   const [hideUI, setHideUI] = useState(false)
-  const [selectedTheme, setSelectedTheme] = useState<'fairy' | 'pirate' | 'viking' | null>(null)
+  const [selectedTheme, setSelectedTheme] = useState<'fairy' | 'pirate' | 'viking' | null>('pirate')
 
   // Load locations from public folder and restore parking spot
   useEffect(() => {
@@ -346,7 +346,7 @@ export default function RenFaireMap() {
     <div style={styles.container}>
       {!hideUI && (
         <div style={styles.header}>
-          <h1>🎭 Renaissance Faire Map</h1>
+          <h1>Ren Faire Map Kansas City</h1>
         </div>
       )}
 
@@ -405,13 +405,13 @@ export default function RenFaireMap() {
         </div>
 
         <div style={styles.themeSelector}>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', marginRight: '8px' }}>Theme:</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#ddd', marginRight: '8px' }}>Theme:</span>
           <button
             onClick={() => setSelectedTheme(null)}
             style={{
               ...styles.filterButton,
-              backgroundColor: selectedTheme === null ? '#3498db' : '#f0f0f0',
-              color: selectedTheme === null ? 'white' : '#333',
+              backgroundColor: selectedTheme === null ? '#3498db' : '#2a2a2a',
+              color: selectedTheme === null ? 'white' : '#ddd',
               fontWeight: selectedTheme === null ? 600 : 500,
             }}
           >
@@ -421,8 +421,8 @@ export default function RenFaireMap() {
             onClick={() => setSelectedTheme('fairy')}
             style={{
               ...styles.filterButton,
-              backgroundColor: selectedTheme === 'fairy' ? '#e74c3c' : '#f0f0f0',
-              color: selectedTheme === 'fairy' ? 'white' : '#333',
+              backgroundColor: selectedTheme === 'fairy' ? '#e74c3c' : '#2a2a2a',
+              color: selectedTheme === 'fairy' ? 'white' : '#ddd',
               fontWeight: selectedTheme === 'fairy' ? 600 : 500,
             }}
           >
@@ -432,8 +432,8 @@ export default function RenFaireMap() {
             onClick={() => setSelectedTheme('pirate')}
             style={{
               ...styles.filterButton,
-              backgroundColor: selectedTheme === 'pirate' ? '#34495e' : '#f0f0f0',
-              color: selectedTheme === 'pirate' ? 'white' : '#333',
+              backgroundColor: selectedTheme === 'pirate' ? '#34495e' : '#2a2a2a',
+              color: selectedTheme === 'pirate' ? 'white' : '#ddd',
               fontWeight: selectedTheme === 'pirate' ? 600 : 500,
             }}
           >
@@ -443,8 +443,8 @@ export default function RenFaireMap() {
             onClick={() => setSelectedTheme('viking')}
             style={{
               ...styles.filterButton,
-              backgroundColor: selectedTheme === 'viking' ? '#8B4513' : '#f0f0f0',
-              color: selectedTheme === 'viking' ? 'white' : '#333',
+              backgroundColor: selectedTheme === 'viking' ? '#8B4513' : '#2a2a2a',
+              color: selectedTheme === 'viking' ? 'white' : '#ddd',
               fontWeight: selectedTheme === 'viking' ? 600 : 500,
             }}
           >
@@ -519,11 +519,13 @@ export default function RenFaireMap() {
         scrollWheelZoom={true}
         maxZoom={19}
       >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; OpenStreetMap contributors'
-          maxZoom={19}
-        />
+        {selectedTheme === null && (
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; OpenStreetMap contributors'
+            maxZoom={19}
+          />
+        )}
         <MapBounds bounds={bounds} />
         <RightClickGPS setUserLocation={setUserLocation} setGpsEnabled={setGpsEnabled} />
         {!hideMarkers && <UserLocationMarker location={userLocation} parkingSpot={parkingSpot} />}
@@ -627,19 +629,19 @@ const styles = {
     flexDirection: 'column' as const,
     height: '100vh',
     fontFamily: 'system-ui, -apple-system, sans-serif',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#000000',
   },
   header: {
     padding: '16px',
-    backgroundColor: '#2c3e50',
+    backgroundColor: '#0f0f0f',
     color: 'white',
     textAlign: 'center' as const,
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
   },
   controls: {
     padding: '12px',
-    backgroundColor: 'white',
-    borderBottom: '1px solid #ddd',
+    backgroundColor: '#1a1a1a',
+    borderBottom: '1px solid #333',
     overflowY: 'auto' as const,
     maxHeight: '220px',
   },
@@ -708,9 +710,11 @@ const styles = {
     flex: 1,
     padding: '10px 12px',
     borderRadius: '6px',
-    border: '1px solid #ddd',
+    border: '1px solid #444',
     fontSize: '14px',
     fontFamily: 'inherit',
+    backgroundColor: '#2a2a2a',
+    color: '#fff',
   },
   clearButton: {
     position: 'absolute' as const,
@@ -721,7 +725,7 @@ const styles = {
     border: 'none',
     cursor: 'pointer' as const,
     fontSize: '18px',
-    color: '#999',
+    color: '#666',
     padding: '0 8px',
   },
   filterContainer: {
@@ -733,23 +737,23 @@ const styles = {
   filterButton: {
     padding: '6px 10px',
     borderRadius: '4px',
-    border: '1px solid #ccc',
-    backgroundColor: '#f0f0f0',
+    border: '1px solid #555',
+    backgroundColor: '#2a2a2a',
     cursor: 'pointer' as const,
     fontSize: '12px',
     fontWeight: 500 as const,
-    color: '#333',
+    color: '#ddd',
     transition: 'all 0.2s',
     whiteSpace: 'nowrap' as const,
   },
   filterButtonActive: {
-    border: '2px solid #333',
+    border: '2px solid #fff',
     transform: 'scale(1.05)',
-    boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+    boxShadow: '0 2px 6px rgba(255,255,255,0.15)',
   },
   resultsInfo: {
     fontSize: '13px',
-    color: '#666',
+    color: '#aaa',
     marginTop: '4px',
   },
   map: {
@@ -760,10 +764,10 @@ const styles = {
   footer: {
     padding: '8px 12px',
     fontSize: '12px',
-    color: '#666',
-    backgroundColor: '#fafafa',
+    color: '#000',
+    backgroundColor: '#1a1a1a',
     textAlign: 'center' as const,
-    borderTop: '1px solid #ddd',
+    borderTop: '1px solid #333',
   },
   popupContent: {
     fontSize: '13px',
