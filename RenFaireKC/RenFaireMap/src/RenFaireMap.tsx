@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 
 interface Location {
   id: string
+  buildingnumber: string
   name: string
   type: string
   vendortype: string
@@ -20,6 +21,47 @@ interface Bounds {
   south: number
   east: number
   west: number
+}
+
+type FilterKey = 'id' | 'buildingnumber' | 'type' | 'name'
+
+interface FilterParam {
+  key: FilterKey
+  value: string
+}
+
+// Priority order when more than one filter param is present in the URL
+const FILTER_KEYS: FilterKey[] = ['id', 'buildingnumber', 'type', 'name']
+
+// Read whichever supported filter param is present in the URL
+const parseFilterFromUrl = (): FilterParam | null => {
+  if (typeof window === 'undefined') return null
+  const params = new URLSearchParams(window.location.search)
+  for (const key of FILTER_KEYS) {
+    const value = params.get(key)
+    if (value) return { key, value }
+  }
+  return null
+}
+
+// Rewrite the URL's query string to reflect the given filter, without adding a history entry
+const writeFilterToUrl = (filter: FilterParam | null) => {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  FILTER_KEYS.forEach((key) => url.searchParams.delete(key))
+  if (filter) {
+    url.searchParams.set(filter.key, filter.value)
+  }
+  window.history.replaceState({}, '', url.toString())
+}
+
+// Build a shareable link that will show only this one location when opened
+const buildShareUrl = (id: string): string => {
+  if (typeof window === 'undefined') return `?id=${encodeURIComponent(id)}`
+  const url = new URL(window.location.href)
+  FILTER_KEYS.forEach((key) => url.searchParams.delete(key))
+  url.searchParams.set('id', id)
+  return url.toString()
 }
 
 // Custom icon colors by type
@@ -173,7 +215,31 @@ const MapBounds: React.FC<{ bounds: Bounds }> = ({ bounds }) => {
       map.setMaxBounds(maxBounds)
     }
   }, [bounds, map])
-  
+
+  return null
+}
+
+// Pans/zooms to whatever the active id/buildingnumber/name URL filter resolved to, once
+const FocusOnFilter: React.FC<{ locations: Location[]; active: boolean }> = ({ locations, active }) => {
+  const map = useMap()
+  const hasFocused = useRef(false)
+
+  useEffect(() => {
+    if (!active) {
+      hasFocused.current = false
+      return
+    }
+    if (hasFocused.current || locations.length === 0) return
+    hasFocused.current = true
+
+    if (locations.length === 1) {
+      map.setView([locations[0].latitude, locations[0].longitude], 19, { animate: true })
+    } else {
+      const b = L.latLngBounds(locations.map((l) => [l.latitude, l.longitude] as [number, number]))
+      map.fitBounds(b, { padding: [60, 60] })
+    }
+  }, [active, locations, map])
+
   return null
 }
 
@@ -189,6 +255,8 @@ export default function RenFaireMap() {
   const [hideMarkers, setHideMarkers] = useState(false)
   const [hideUI, setHideUI] = useState(false)
   const [selectedTheme, setSelectedTheme] = useState<'fairy' | 'pirate' | 'viking' | null>('pirate')
+  const [filterParam, setFilterParam] = useState<FilterParam | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   // Load locations from public folder and restore parking spot
   useEffect(() => {
@@ -210,6 +278,59 @@ export default function RenFaireMap() {
       setParkingSpot([lat, lng])
     }
   }, [])
+
+  // Read ?id=, ?buildingnumber=, ?type=, or ?name= from the URL, and keep it in sync
+  // with back/forward navigation (e.g. after using the "Show All" button)
+  useEffect(() => {
+    const applyFromUrl = () => {
+      const parsed = parseFilterFromUrl()
+      setFilterParam(parsed)
+      setSelectedType(parsed?.key === 'type' ? parsed.value.toUpperCase() : null)
+      if (parsed?.key === 'id') {
+        setSelectedLocationId(parsed.value)
+      }
+    }
+    applyFromUrl()
+    window.addEventListener('popstate', applyFromUrl)
+    return () => window.removeEventListener('popstate', applyFromUrl)
+  }, [])
+
+  // Change which type is shown, and reflect it in the URL as ?type=
+  const handleSelectType = (type: string | null) => {
+    setSelectedType(type)
+    const next = type ? { key: 'type' as const, value: type } : null
+    setFilterParam(next)
+    writeFilterToUrl(next)
+  }
+
+  // Drop whatever id/buildingnumber/type/name filter is active from the URL and show everything again
+  const clearFilter = () => {
+    setFilterParam(null)
+    setSelectedType(null)
+    writeFilterToUrl(null)
+  }
+
+  // Copy (or share, on mobile) a link that shows only this one location
+  const shareLocation = (location: Location) => {
+    const url = buildShareUrl(location.id)
+    if (typeof navigator !== 'undefined' && (navigator as any).share) {
+      ;(navigator as any).share({ title: location.name, url }).catch(() => {})
+      return
+    }
+    if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard
+        .writeText(url)
+        .then(() => {
+          setCopiedId(location.id)
+          setTimeout(() => setCopiedId((current) => (current === location.id ? null : current)), 2000)
+        })
+        .catch(() => {
+          window.prompt('Copy this link:', url)
+        })
+    } else {
+      window.prompt('Copy this link:', url)
+    }
+  }
 
   // Request GPS permission and track location
   const requestGPS = () => {
@@ -294,27 +415,34 @@ export default function RenFaireMap() {
   // Filter locations
   const filteredLocations = useMemo(() => {
     return locationsData.filter((loc) => {
+      // Check if location is within bounding box
+      const isWithinBounds =
+        loc.latitude >= bounds.south &&
+        loc.latitude <= bounds.north &&
+        loc.longitude >= bounds.west &&
+        loc.longitude <= bounds.east &&
+        loc.latitude !== 0 &&
+        loc.longitude !== 0
+
+      if (!isWithinBounds) return false
+
+      // ?id=, ?buildingnumber=, and ?name= take over the filter entirely, so a shared
+      // link always shows exactly the location(s) it points to
+      if (filterParam && (filterParam.key === 'id' || filterParam.key === 'buildingnumber' || filterParam.key === 'name')) {
+        if (filterParam.key === 'id') return loc.id === filterParam.value
+        if (filterParam.key === 'buildingnumber') return loc.buildingnumber === filterParam.value
+        return loc.name.toLowerCase() === filterParam.value.toLowerCase()
+      }
+
       const matchesType = !selectedType || loc.type === selectedType
       const matchesSearch =
         !searchTerm ||
         loc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         loc.vendortype.toLowerCase().includes(searchTerm.toLowerCase()) ||
         loc.description.toLowerCase().includes(searchTerm.toLowerCase())
-      // Check if location is within bounding box
-      const isWithinBounds =
-        loc.latitude >= bounds.south &&
-        loc.latitude <= bounds.north &&
-        loc.longitude >= bounds.west &&
-        loc.longitude <= bounds.east
-      return (
-        matchesType &&
-        matchesSearch &&
-        isWithinBounds &&
-        loc.latitude !== 0 &&
-        loc.longitude !== 0
-      )
+      return matchesType && matchesSearch
     })
-  }, [selectedType, searchTerm, locationsData, bounds])
+  }, [selectedType, searchTerm, locationsData, bounds, filterParam])
 
   // Get locations within bounds for filter display
   const locationsInBounds = useMemo(() => {
@@ -352,6 +480,16 @@ export default function RenFaireMap() {
 
       {!hideUI && (
       <div style={styles.controls}>
+        {filterParam && (
+          <div style={styles.filterBanner}>
+            <span>
+              Showing {filterParam.key === 'id' ? 'booth' : filterParam.key === 'buildingnumber' ? 'building' : filterParam.key === 'name' ? 'location' : 'category'}: <strong>{filterParam.value}</strong>
+            </span>
+            <button onClick={clearFilter} style={styles.clearFilterButton}>
+              Show All
+            </button>
+          </div>
+        )}
         <div style={styles.gpsControls}>
           <button
             onClick={requestGPS}
@@ -476,7 +614,7 @@ export default function RenFaireMap() {
               ...styles.filterButton,
               ...(selectedType === null && styles.filterButtonActive),
             }}
-            onClick={() => setSelectedType(null)}
+            onClick={() => handleSelectType(null)}
           >
             All ({locationsInBounds.length})
           </button>
@@ -491,7 +629,7 @@ export default function RenFaireMap() {
                   backgroundColor: getMarkerColor(type),
                   ...(selectedType === type && styles.filterButtonActive),
                 }}
-                onClick={() => setSelectedType(type)}
+                onClick={() => handleSelectType(type)}
                 title={type}
               >
                 {type} ({count})
@@ -527,6 +665,7 @@ export default function RenFaireMap() {
           />
         )}
         <MapBounds bounds={bounds} />
+        <FocusOnFilter locations={filteredLocations} active={!!filterParam && filterParam.key !== 'type'} />
         <RightClickGPS setUserLocation={setUserLocation} setGpsEnabled={setGpsEnabled} />
         {!hideMarkers && <UserLocationMarker location={userLocation} parkingSpot={parkingSpot} />}
 
@@ -561,6 +700,11 @@ export default function RenFaireMap() {
               icon={createCustomIcon(selectedLocationId === location.id ? '#2c3e50' : getMarkerColor(location.type))}
               eventHandlers={{
                 click: () => setSelectedLocationId(location.id),
+              }}
+              ref={(markerRef) => {
+                if (markerRef && filterParam?.key === 'id' && filterParam.value === location.id) {
+                  markerRef.openPopup()
+                }
               }}
             >
               <Popup>
@@ -599,6 +743,12 @@ export default function RenFaireMap() {
                       <strong>Schedule:</strong> {location.schedule[0]}
                     </p>
                   )}
+                  <button
+                    onClick={() => shareLocation(location)}
+                    style={styles.shareButton}
+                  >
+                    {copiedId === location.id ? '✓ Link copied!' : '🔗 Share this location'}
+                  </button>
                 </div>
               </Popup>
             </Marker>
@@ -644,6 +794,30 @@ const styles = {
     borderBottom: '1px solid #333',
     overflowY: 'auto' as const,
     maxHeight: '220px',
+  },
+  filterBanner: {
+    display: 'flex' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    gap: '8px',
+    padding: '8px 12px',
+    marginBottom: '12px',
+    borderRadius: '6px',
+    backgroundColor: '#2c3e50',
+    color: '#fff',
+    fontSize: '13px',
+    flexWrap: 'wrap' as const,
+  },
+  clearFilterButton: {
+    padding: '6px 10px',
+    borderRadius: '4px',
+    border: 'none',
+    backgroundColor: '#e74c3c',
+    color: 'white',
+    cursor: 'pointer' as const,
+    fontSize: '12px',
+    fontWeight: 600 as const,
+    whiteSpace: 'nowrap' as const,
   },
   gpsControls: {
     display: 'flex' as const,
@@ -787,5 +961,17 @@ const styles = {
     color: '#0066cc',
     textDecoration: 'none',
     fontWeight: 500 as const,
+  },
+  shareButton: {
+    marginTop: '8px',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: 'none',
+    backgroundColor: '#3498db',
+    color: 'white',
+    cursor: 'pointer' as const,
+    fontSize: '13px',
+    fontWeight: 600 as const,
+    width: '100%',
   },
 }
